@@ -8,6 +8,10 @@ RUN cd /opt/ansible && \
 
 FROM ${CPD_OLM_UTILS_V4_IMAGE} as olm-utils-v4
 
+# Re-declare build ARGs so they are available as env vars inside this stage
+ARG CPD_OLM_UTILS_V3_IMAGE
+ARG CPD_OLM_UTILS_V4_IMAGE
+
 LABEL authors="Arthur Laimbock, \
             Markus Wiegleb, \
             Frank Ketelaars, \ 
@@ -27,7 +31,7 @@ RUN export PYVER=$(python -c "import sys;print('{}.{}'.format(sys.version_info[0
     python3 -m ensurepip && \
     yum install -y yum-utils && \
     yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
-    yum install -y tar sudo unzip wget httpd-tools git hostname bind-utils iproute procps-ng which && \
+    yum install -y tar sudo unzip wget httpd-tools git hostname bind-utils iproute procps-ng which skopeo && \
     # Need gcc anf py-devel to recompile python dependencies on ppc64le (during pip install).
     yum install -y gcc python${PYVER}-devel && \
     pip3 install --no-cache-dir hvac jmespath pyyaml argparse python-benedict pyvmomi psutil && \
@@ -54,6 +58,15 @@ COPY --from=olm-utils-v3 /tmp/opt-ansible-v3.tar.gz /olm-utils/
 
 RUN cd /opt/ansible && \
     tar czf /olm-utils/opt-ansible-v4.tar.gz *
+
+# Capture the olm-utils image references and manifests
+RUN mkdir -p /cloud-pak-deployer/.version-info && \
+    echo -n ${CPD_OLM_UTILS_V3_IMAGE} > /cloud-pak-deployer/.version-info/olm-utils-v3-image.txt && \
+    skopeo inspect --raw docker://${CPD_OLM_UTILS_V3_IMAGE} \
+        > /cloud-pak-deployer/.version-info/olm-utils-v3-manifest.json && \
+    echo -n ${CPD_OLM_UTILS_V4_IMAGE} > /cloud-pak-deployer/.version-info/olm-utils-v4-image.txt && \
+    skopeo inspect --raw docker://${CPD_OLM_UTILS_V4_IMAGE} \
+        > /cloud-pak-deployer/.version-info/olm-utils-v4-manifest.json
 
 # BUG with building wheel 
 #RUN pip3 install -r /cloud-pak-deployer/deployer-web/requirements.txt > /tmp/deployer-web-pip-install.out 2>&1

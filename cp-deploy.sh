@@ -712,20 +712,6 @@ if ! $INSIDE_CONTAINER;then
     fi
 
     echo "Building Cloud Pak Deployer container image cloud-pak-deployer:${CPD_IMAGE_TAG}"
-    # Store version info into image
-    mkdir -p ${SCRIPT_DIR}/.version-info
-    DEPLOYER_VERSION_INFO=$(git log -n1 --pretty='format:%h %cd |%s' --date=format:'%Y-%m-%dT%H:%M:%S' 2> /dev/null)
-    echo "COMMIT_HASH=$(echo $DEPLOYER_VERSION_INFO  | awk '{print $1}')" > ${SCRIPT_DIR}/.version-info/version-info.sh
-    echo "COMMIT_TIMESTAMP=$(echo $DEPLOYER_VERSION_INFO  | awk '{print $2}')" >> ${SCRIPT_DIR}/.version-info/version-info.sh
-    echo "COMMIT_MESSAGE=\"$(echo $DEPLOYER_VERSION_INFO  | cut -d'|' -f2)\"" >> ${SCRIPT_DIR}/.version-info/version-info.sh
-    chmod +x ${SCRIPT_DIR}/.version-info/version-info.sh
-    # Show version info
-    cat ${SCRIPT_DIR}/.version-info/version-info.sh
-    # Store the base image manifests
-    echo -n ${CPD_OLM_UTILS_V3_IMAGE} > ${SCRIPT_DIR}/.version-info/olm-utils-v3-image.txt
-    ${CPD_CONTAINER_ENGINE} manifest inspect ${CPD_OLM_UTILS_V3_IMAGE} > ${SCRIPT_DIR}/.version-info/olm-utils-v3-manifest.json
-    echo -n ${CPD_OLM_UTILS_V4_IMAGE} > ${SCRIPT_DIR}/.version-info/olm-utils-v4-image.txt
-    ${CPD_CONTAINER_ENGINE} manifest inspect ${CPD_OLM_UTILS_V4_IMAGE} > ${SCRIPT_DIR}/.version-info/olm-utils-v4-manifest.json
     # Build the image
     if [ "${IMAGE_ARCH}" == "amd64" ]; then
       DOCKERFILE=Dockerfile
