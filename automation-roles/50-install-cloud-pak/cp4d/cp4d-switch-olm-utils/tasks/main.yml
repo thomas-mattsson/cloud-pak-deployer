@@ -47,11 +47,6 @@
   vars:
     query: >-
       [?platform.architecture=='{{ IMAGE_ARCH }}']
-  when: _olm_utils_image_manifest.manifests is defined
-
-- set_fact:
-    _olm_utils_image_digest: "{{ _olm_utils_image_manifest.config.digest }}"
-  when: _olm_utils_image_manifest.manifests is not defined
 
 - set_fact:
     _olm_utils_image_full: "{{ _olm_utils_image }}@{{ _olm_utils_image_digest }}"

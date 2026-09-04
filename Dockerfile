@@ -59,14 +59,28 @@ COPY --from=olm-utils-v3 /tmp/opt-ansible-v3.tar.gz /olm-utils/
 RUN cd /opt/ansible && \
     tar czf /olm-utils/opt-ansible-v4.tar.gz *
 
-# Capture the olm-utils image references and manifests
-RUN mkdir -p /cloud-pak-deployer/.version-info && \
+# Capture the olm-utils image references and manifests.
+# If a single-arch tag is used (no .manifests array, or manifests:null as podman
+# returns) we use skopeo to get the canonical manifest digest and the image
+# architecture, then emit a synthetic manifest list so the Ansible consumer can
+# always use the same .manifests[?platform.architecture] query.
+RUN _wrap_manifest() { \
+        local image=$1 outfile=$2; \
+        raw=$(skopeo inspect --raw docker://${image}); \
+        if echo "${raw}" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('manifests') else 1)" 2>/dev/null; then \
+            echo "${raw}" > ${outfile}; \
+        else \
+            digest=$(skopeo inspect --format '{{.Digest}}' docker://${image}); \
+            arch=$(skopeo inspect --format '{{.Architecture}}' docker://${image}); \
+            python3 -c "import json; print(json.dumps({'schemaVersion':2,'mediaType':'application/vnd.docker.distribution.manifest.list.v2+json','manifests':[{'digest':'${digest}','platform':{'architecture':'${arch}','os':'linux'}}]}))" \
+            > ${outfile}; \
+        fi; \
+    } && \
+    mkdir -p /cloud-pak-deployer/.version-info && \
     echo -n ${CPD_OLM_UTILS_V3_IMAGE} > /cloud-pak-deployer/.version-info/olm-utils-v3-image.txt && \
-    skopeo inspect --raw docker://${CPD_OLM_UTILS_V3_IMAGE} \
-        > /cloud-pak-deployer/.version-info/olm-utils-v3-manifest.json && \
+    _wrap_manifest ${CPD_OLM_UTILS_V3_IMAGE} /cloud-pak-deployer/.version-info/olm-utils-v3-manifest.json && \
     echo -n ${CPD_OLM_UTILS_V4_IMAGE} > /cloud-pak-deployer/.version-info/olm-utils-v4-image.txt && \
-    skopeo inspect --raw docker://${CPD_OLM_UTILS_V4_IMAGE} \
-        > /cloud-pak-deployer/.version-info/olm-utils-v4-manifest.json
+    _wrap_manifest ${CPD_OLM_UTILS_V4_IMAGE} /cloud-pak-deployer/.version-info/olm-utils-v4-manifest.json
 
 # BUG with building wheel 
 #RUN pip3 install -r /cloud-pak-deployer/deployer-web/requirements.txt > /tmp/deployer-web-pip-install.out 2>&1
