@@ -712,6 +712,13 @@ if ! $INSIDE_CONTAINER;then
     fi
 
     echo "Building Cloud Pak Deployer container image cloud-pak-deployer:${CPD_IMAGE_TAG}"
+    # Store version info so it gets COPY'd into the image (.git is excluded by .dockerignore)
+    mkdir -p ${SCRIPT_DIR}/.version-info
+    DEPLOYER_VERSION_INFO=$(git log -n1 --pretty='format:%h %cd |%s' --date=format:'%Y-%m-%dT%H:%M:%S' 2>/dev/null)
+    echo "COMMIT_HASH=$(echo $DEPLOYER_VERSION_INFO | awk '{print $1}')" > ${SCRIPT_DIR}/.version-info/version-info.sh
+    echo "COMMIT_TIMESTAMP=$(echo $DEPLOYER_VERSION_INFO | awk '{print $2}')" >> ${SCRIPT_DIR}/.version-info/version-info.sh
+    echo "COMMIT_MESSAGE=\"$(echo $DEPLOYER_VERSION_INFO | cut -d'|' -f2)\"" >> ${SCRIPT_DIR}/.version-info/version-info.sh
+    chmod +x ${SCRIPT_DIR}/.version-info/version-info.sh
     # Build the image
     if [ "${IMAGE_ARCH}" == "amd64" ]; then
       DOCKERFILE=Dockerfile

@@ -25,7 +25,9 @@ fi
 cd ${SCRIPT_DIR}/..
 
 # Retrieve version info
-source ./.version-info/version-info.sh
+if [ -f ./.version-info/version-info.sh ]; then
+  source ./.version-info/version-info.sh
+fi
 
 # Set environment variables
 source ./scripts/deployer/set-env-var.sh
