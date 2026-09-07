@@ -55,6 +55,20 @@ COPY ./deployer-web/nginx.conf   /etc/nginx/
 
 COPY --from=olm-utils-v3 /tmp/opt-ansible-v3.tar.gz /olm-utils/
 
+# Temporary workaround: olm-utils uses `oc version` to detect arch, which returns
+# the control plane arch (amd64) on mixed-arch clusters. Since this image only runs
+# on ppc64le, hardcode ppc64le directly in all arch detection calls.
+RUN python3 - <<'EOF'
+import pathlib, glob
+old = "subprocess.run(\"oc version -o yaml | yq eval '.serverVersion.platform' | cut -d'/' -f2\", check=True, capture_output=True, text=True,shell=True).stdout.strip()"
+for f in glob.glob('/opt/ansible/bin/*.py'):
+    p = pathlib.Path(f)
+    t = p.read_text()
+    if old in t:
+        p.write_text(t.replace(old, "'ppc64le'"))
+        print('PATCHED:', f)
+EOF
+
 RUN cd /opt/ansible && \
     tar czf /olm-utils/opt-ansible-v4.tar.gz *
 
@@ -77,6 +91,13 @@ RUN _wrap_manifest() { \
         fi; \
     } && \
     mkdir -p /cloud-pak-deployer/.version-info && \
+    DEPLOYER_VERSION_INFO=$(git -C /cloud-pak-deployer log -n1 --pretty='format:%h %cd |%s' --date=format:'%Y-%m-%dT%H:%M:%S' 2>/dev/null || true) && \
+    { \
+      echo "COMMIT_HASH=$(echo ${DEPLOYER_VERSION_INFO} | awk '{print $1}')"; \
+      echo "COMMIT_TIMESTAMP=$(echo ${DEPLOYER_VERSION_INFO} | awk '{print $2}')"; \
+      echo "COMMIT_MESSAGE=\"$(echo ${DEPLOYER_VERSION_INFO} | cut -d'|' -f2)\""; \
+    } > /cloud-pak-deployer/.version-info/version-info.sh && \
+    chmod +x /cloud-pak-deployer/.version-info/version-info.sh && \
     echo -n ${CPD_OLM_UTILS_V3_IMAGE} > /cloud-pak-deployer/.version-info/olm-utils-v3-image.txt && \
     _wrap_manifest ${CPD_OLM_UTILS_V3_IMAGE} /cloud-pak-deployer/.version-info/olm-utils-v3-manifest.json && \
     echo -n ${CPD_OLM_UTILS_V4_IMAGE} > /cloud-pak-deployer/.version-info/olm-utils-v4-image.txt && \
